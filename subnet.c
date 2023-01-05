@@ -35,18 +35,15 @@ unsigned long get_mask_value_in_integer_format(unsigned char given_mask){
 
 // Get integer format of given IP-address from A.B.C.D format. Return Integer value of IP-address
 unsigned long get_ip_integer_equivalent(char *ip_address){
-    
     unsigned char ip_bytes[4];
     sscanf(ip_address, "%hhu.%hhu.%hhu.%hhu", &ip_bytes[3], &ip_bytes[2], &ip_bytes[1], &ip_bytes[0]);
     return ip_bytes[0] | ip_bytes[1] << 8 | ip_bytes[2] << 16 | ip_bytes[3] << 24;
 }
 
 
-// Get IP-format in A.B.C.D from integer format
+// Get IP-format in A.B.C.D from integer format. Return IP in A.B.C.D-format
 char* get_abcd_ip_format(unsigned long ip_address, char* output_buffer){
-    
     unsigned char ip_bytes[4];
-
     ip_bytes[3] = (ip_address & 0xFF000000) >> 24;      // A
     ip_bytes[2] = (ip_address & 0xFF0000) >> 16;        // B
     ip_bytes[1] = (ip_address & 0xFF00) >> 8;           // C
@@ -57,60 +54,81 @@ char* get_abcd_ip_format(unsigned long ip_address, char* output_buffer){
 }
 
 
-// Get current network ID, given IP-adress in format (A.B.C.D) and mask value in integer format. Return a string in A.B.C.D format
-char* get_network_id(char* ip_address, unsigned char given_mask, char* output_buffer){
+// If Mask is 24 or higher, Multiple Network ID's will appear in last byte of A.B.C.D. Return the amount of network id:s in the last byte. Also store the Network ID:s in id_array
+int get_multiple_network_id_from_last_byte(unsigned char given_mask, unsigned long* id_array){
+    int number_of_ids = 1;
+    int multiple;
+    if(given_mask > 24){
+        if(given_mask == 25){
+            number_of_ids = 2;
+        } else {
+            multiple = 1 << given_mask - 24;
+            number_of_ids = multiple;
+        }
+
+    }
+
+    return number_of_ids;
+}
+
+// Get current network ID, given IP-adress in format (A.B.C.D) and mask value in integer format. Return Network ID in integer format.
+unsigned long get_network_id(char* ip_address, unsigned char given_mask, char* output_buffer){
 
     unsigned long network_mask = get_mask_value_in_integer_format(given_mask);
     unsigned long network_ip = get_ip_integer_equivalent(ip_address);
     unsigned long network_id = network_ip & network_mask;
    
-    return get_abcd_ip_format(network_id, output_buffer);
+    get_abcd_ip_format(network_id, output_buffer);
+    return network_id;
 }
 
-
-// Get current network broadcast address, given IP-address in format (A.B.C.D) and mask value in integer format. Return a string in A.B.C.D format
-char* get_network_broadcast(char* ip_address, unsigned char given_mask, char* output_buffer){
+// Get current network broadcast address, given IP-address in format (A.B.C.D) and mask value in integer format. Return network broadcast in integer format
+unsigned long get_network_broadcast(char* ip_address, unsigned char given_mask, char* output_buffer){
 
     unsigned long network_mask = get_mask_value_in_integer_format(given_mask);
     unsigned long network_ip = get_ip_integer_equivalent(ip_address);
     unsigned long network_id = network_ip & network_mask;
 
     unsigned long network_broadcast = network_id | COMPLEMENT(network_mask);
-
-    return get_abcd_ip_format(network_broadcast, output_buffer);
+    get_abcd_ip_format(network_broadcast, output_buffer);
+    return network_broadcast;
 }
 
-// Get subnet-mask in A.B.C.D-format, given mask-value in integer format. Return string in A.B.C.D format
-char* get_subnet_mask(unsigned char given_mask, char* output_buffer){
+// Get subnet-mask in A.B.C.D-format, given mask-value in integer format. Return subnet-mask in integer format
+unsigned long get_subnet_mask(unsigned char given_mask, char* output_buffer){
     unsigned long network_mask = get_mask_value_in_integer_format(given_mask);
-    return get_abcd_ip_format(network_mask, output_buffer);
+    get_abcd_ip_format(network_mask, output_buffer);
+    return network_mask;
 }
 
 // Check if the given IP (ip-address 2) integer value is equal the given IP (ip-address 1) Network-ID integer value. If true, Return 0, else Return -1 
 // The given network-ID and given IP-addressers are in in A.B.C.D-format.
-int check_ip_subnet_membership(char* network_ip1, unsigned char network_ip1_mask, char* network_ip2, unsigned char network_ip2_mask, char* output_buffer){
-    char* network_id1 = get_network_id(network_ip1, network_ip1_mask, output_buffer);
-    char* network_id2 = get_network_id(network_ip2, network_ip2_mask, output_buffer);
+unsigned long check_ip_subnet_membership(char* network_ip1, unsigned char network_ip1_mask, char* network_ip2, unsigned char network_ip2_mask, char* output_buffer){
+    unsigned long network_id1 = get_network_id(network_ip1, network_ip1_mask, output_buffer);
+    unsigned long network_id2 = get_network_id(network_ip2, network_ip2_mask, output_buffer);
     
     // TODO
     // Complete check if the IP-addresses are in the range of the network-ID
 
 
     if(network_ip1_mask != network_ip2_mask){
+        printf("\n");
         printf("Warning: There are different masks in this configuration. Communication is theoreticlly possible as long as: \n");
         if(network_ip1_mask > network_ip2_mask){
             printf("%s tries to connect to %s. Only because the subnet-mask of %s (%d) is smaller %s (%d). But since it's bad configuration. Communication will not work both ways\n", network_ip2, network_ip1, network_ip2, network_ip2_mask, network_ip1, network_ip1_mask);
         } else {
             printf("%s tries to connect to %s. Only because the subnet-mask of %s (%d) is smaller %s (%d). But since it's bad configuration. Communication will not work both ways\n", network_ip1, network_ip2, network_ip1, network_ip1_mask, network_ip2, network_ip2_mask);
         }
+
+        printf("\n");
     }
 
-    if(get_ip_integer_equivalent(network_id1) == get_ip_integer_equivalent(network_id2)){
-        printf("The given IP-address %s (ID = %s/%d), is in the same subnet as %s (ID = %s/%d)\n", network_ip2, network_id2, network_ip2_mask, network_ip1 ,network_id1, network_ip1_mask);
+    if(network_id1 == network_id2){
+        printf("The given IP-address %s (ID = %s/%d), is in the same subnet as %s (ID = %s/%d)\n", network_ip2, get_abcd_ip_format(network_id2, output_buffer), network_ip2_mask, network_ip1, get_abcd_ip_format(network_id1, output_buffer), network_ip1_mask);
         return 0;
     }
     else {
-        printf("The given IP-address %s (ID = %s/%d), is NOT in the same subnet as %s (ID = %s/%d)\n", network_ip2, network_id2, network_ip2_mask, network_ip1 ,network_id1, network_ip1_mask);
+        printf("The given IP-address %s (ID = %s/%d), is NOT in the same subnet as %s (ID = %s/%d)\n", network_ip2, get_abcd_ip_format(network_id2, output_buffer), network_ip2_mask, network_ip1, get_abcd_ip_format(network_id1, output_buffer), network_ip1_mask);
         return -1;
     }
     
@@ -138,74 +156,12 @@ void print_set_bits(unsigned int u_integer){
 
 int main(int argc, char* argv[]){
 
-    int mask = 24;
-    unsigned long mask_value;
+    unsigned long id_array[10];    
     char output_buffer[PREFIX_LENGTH+1] = {0};
-    char* given_ip = "192.168.2.10";
-    char* given_network_id = "192.168.2.0";
+    char* network_broadcast;
+    char* subnet_mask;
 
-    /* Test Conditions */
-    /* Q1. Get broadcast address */
-    /* Q3. Get A.B.C.D IP Format */
-    /* Q4. Get Network ID */
-    /* Q5. Get Subnet-cardinality / Max number of hosts */
-
-    printf("------------- Q1, Q3, Q4, Q5 -------------\n");
-    printf("\n");
-    printf("Test case 1: \n");
-    printf("Given mask: %d, Max number of hosts: %lu\n", mask, get_max_hosts_in_subnet(mask));
-    printf("Given ip-address: %s\n", given_ip);
-    given_network_id = get_network_id(given_ip, mask, output_buffer);
-    printf("Network ID: %s/%d\n", given_network_id, mask);
-    printf("Network Broadcast: %s\n", get_network_broadcast(given_network_id, mask, output_buffer));
-    printf("Subnet-mask: %s\n", get_subnet_mask(mask, output_buffer));
-    printf("\n");
-
-    given_ip = "10.1.23.10";
-    mask = 20;
-
-    printf("\n");
-    printf("Test case 2: \n");
-    printf("Given mask: %d, Max number of hosts: %lu\n", mask, get_max_hosts_in_subnet(mask));
-    printf("Given ip-address: %s\n", given_ip);
-    given_network_id = get_network_id(given_ip, mask, output_buffer);
-    printf("Network ID: %s/%d\n", given_network_id, mask);
-    printf("Network Broadcast: %s\n", get_network_broadcast(given_network_id, mask, output_buffer));
-    printf("Subnet-mask: %s\n", get_subnet_mask(mask, output_buffer));
-    printf("\n");
-
-    /* Q2. Get IP integer equivalent */
-    given_ip = "192.168.2.10";
-
-    printf("------------- Q2 -------------\n");
-    printf("\n");
-    printf("Test case 1: \n");
-    printf("Given ip-address: %s\n", given_ip);
-    printf("Integer Equivalent: %lu\n", get_ip_integer_equivalent(given_ip));
-    printf("\n");
-
-    given_ip = "10.1.23.10";
-
-    printf("\n");
-    printf("Test case 2: \n");
-    printf("Given ip-address: %s\n", given_ip);
-    printf("Integer Equivalent: %lu\n", get_ip_integer_equivalent(given_ip));
-
-    printf("\n");
-
-    /* Q6. Get IP subnet membership */
-    printf("------------- Q6 -------------\n");
-    char* given_ip1 = "192.168.1.126";
-    char* given_ip2 = "192.168.0.150";
-    int mask_ip1 = 27;
-    int mask_ip2 = 28;
-    printf("\n");
-    printf("Test case 1: \n");
-    printf("Given ip-address 1: %s/%d\n", given_ip1, mask_ip1);
-    printf("Given ip-address 2: %s/%d\n", given_ip2, mask_ip2);
-    check_ip_subnet_membership(given_ip1, mask_ip1, given_ip2, mask_ip2, output_buffer);
-    printf("\n");
-
+    printf("Number of sub network-ids: %d\n", get_multiple_network_id_from_last_byte(30, id_array));
 
     return 0;
 }
