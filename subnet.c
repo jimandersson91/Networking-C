@@ -55,7 +55,7 @@ char* get_abcd_ip_format(unsigned long ip_address, char* output_buffer){
 
 
 // If Mask is 24 or higher, Multiple Network ID's will appear in last byte of A.B.C.D. Return the amount of network id:s in the last byte. Also store the Network ID:s in id_array
-int get_multiple_network_id_from_last_byte(unsigned char given_mask, unsigned long* id_array){
+int get_multiple_network_id_from_C_blocks(unsigned char given_mask, unsigned long* id_array){
     int number_of_ids = 1;
     int multiple;
     if(given_mask > 24){
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]){
     char* network_broadcast;
     char* subnet_mask;
 
-    printf("Number of sub network-ids: %d\n", get_multiple_network_id_from_last_byte(30, id_array));
+    printf("Number of sub network-ids: %d\n", get_multiple_network_id_from_C_blocks(30, id_array));
 
     return 0;
 }
