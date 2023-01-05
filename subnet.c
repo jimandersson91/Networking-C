@@ -86,20 +86,31 @@ char* get_subnet_mask(unsigned char given_mask, char* output_buffer){
     return get_abcd_ip_format(network_mask, output_buffer);
 }
 
-// Check if the given IP integer value is equal the given network-id integer value. If true, Return 0, else Return -1 
+// Check if the given IP (ip-address 2) integer value is equal the given IP (ip-address 1) Network-ID integer value. If true, Return 0, else Return -1 
 // The given network-ID and given IP-addressers are in in A.B.C.D-format.
-int check_ip_subnet_membership(char* network_id, unsigned char mask, char* ip_address){
-    unsigned long network_id_address = get_ip_integer_equivalent(network_id);
-    unsigned long check_ip_address = get_ip_integer_equivalent(ip_address);
-    unsigned long network_mask = get_mask_value_in_integer_format(mask);
-    unsigned long check_address = check_ip_address & network_mask;
+int check_ip_subnet_membership(char* network_ip1, unsigned char network_ip1_mask, char* network_ip2, unsigned char network_ip2_mask, char* output_buffer){
+    char* network_id1 = get_network_id(network_ip1, network_ip1_mask, output_buffer);
+    char* network_id2 = get_network_id(network_ip2, network_ip2_mask, output_buffer);
+    
+    // TODO
+    // Complete check if the IP-addresses are in the range of the network-ID
 
-    if(check_address == network_id_address){
-        printf("The given IP-address %s, is in the same subnet as given Network ID %s/%d\n", ip_address, network_id, mask);
+
+    if(network_ip1_mask != network_ip2_mask){
+        printf("Warning: There are different masks in this configuration. Communication is theoreticlly possible as long as: \n");
+        if(network_ip1_mask > network_ip2_mask){
+            printf("%s tries to connect to %s. Only because the subnet-mask of %s (%d) is smaller %s (%d). But since it's bad configuration. Communication will not work both ways\n", network_ip2, network_ip1, network_ip2, network_ip2_mask, network_ip1, network_ip1_mask);
+        } else {
+            printf("%s tries to connect to %s. Only because the subnet-mask of %s (%d) is smaller %s (%d). But since it's bad configuration. Communication will not work both ways\n", network_ip1, network_ip2, network_ip1, network_ip1_mask, network_ip2, network_ip2_mask);
+        }
+    }
+
+    if(get_ip_integer_equivalent(network_id1) == get_ip_integer_equivalent(network_id2)){
+        printf("The given IP-address %s (ID = %s/%d), is in the same subnet as %s (ID = %s/%d)\n", network_ip2, network_id2, network_ip2_mask, network_ip1 ,network_id1, network_ip1_mask);
         return 0;
     }
     else {
-        printf("The given IP-address %s, is NOT in the same subnet as given Network ID %s/%d\n", ip_address, network_id, mask);
+        printf("The given IP-address %s (ID = %s/%d), is NOT in the same subnet as %s (ID = %s/%d)\n", network_ip2, network_id2, network_ip2_mask, network_ip1 ,network_id1, network_ip1_mask);
         return -1;
     }
     
@@ -184,17 +195,17 @@ int main(int argc, char* argv[]){
 
     /* Q6. Get IP subnet membership */
     printf("------------- Q6 -------------\n");
-    given_network_id = "192.168.2.0";
-    given_ip = "192.168.2.13";
-    mask = 24;
+    char* given_ip1 = "192.168.1.126";
+    char* given_ip2 = "192.168.0.150";
+    int mask_ip1 = 27;
+    int mask_ip2 = 28;
     printf("\n");
     printf("Test case 1: \n");
-    printf("Given network-id: %s/%d\n", given_network_id, mask);
-    printf("Given ip-address: %s\n", given_ip);
-    printf("Network Broadcast: %s\n", get_network_broadcast(given_network_id, mask, output_buffer));
-    printf("Subnet-mask: %s\n", get_subnet_mask(mask, output_buffer));
-    check_ip_subnet_membership(given_network_id, mask, given_ip);
+    printf("Given ip-address 1: %s/%d\n", given_ip1, mask_ip1);
+    printf("Given ip-address 2: %s/%d\n", given_ip2, mask_ip2);
+    check_ip_subnet_membership(given_ip1, mask_ip1, given_ip2, mask_ip2, output_buffer);
     printf("\n");
+
 
     return 0;
 }
