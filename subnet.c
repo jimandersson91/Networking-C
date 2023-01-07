@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <conio.h>
 
 #define SET_BIT(num, bit) ((num) = (num) | 1 << (bit));
 #define CLEAR_BIT(num, bit) ((num) = (num) & (1 << (bit) ^ 0xFFFFFFFF));
@@ -11,14 +12,44 @@
 #define MAX_MASK_LENGTH 32          // Maximum Value for Subnet-mask
 #define PREFIX_LENGTH 15            // Maximumum IPv4 len in A.B.C.D format
 
-// Calculate total hosts possible in subnet, with given mask value. Mask 24 gives total of 254 hosts. This is also called "subnet-cardinality"
+// Calculate total hosts possible in subnet (ONLY Class B and Class C), with given mask value. Mask 24 gives total of 254 hosts. This is also called "subnet-cardinality". 
+// Return -1 if the given mask prefix falls outside of Class B and Class C prefix ranges. B (/16 -> /30)    C (/24 -> /30)
 // Mask 24 = 11111111   11111111    11111111    00000000
 //              ^           ^           ^           ^
 //           Mask-bits   Mask-bit   Mask-bit    Control-bits
 unsigned long get_max_hosts_in_subnet(unsigned char given_mask){
+
+    if(given_mask > 30 || given_mask < 16){
+        printf("Error: Given mask-prefix falls outside of the range for Class B and/or Class C IP-addresses. Exiting function. No Calculation performed\n");
+        return -1;
+    }
+
     unsigned long max_hosts;
     max_hosts = pow(2, (MAX_MASK_LENGTH - given_mask)) - 2;
     return max_hosts;
+}
+
+// Calculate total subnets possible- (ONLY Class B and Class C), with given mask value. Mask 24 gives total of 254 subnetts. 
+// Return -1 if the given mask prefix falls outside of Class B and Class C prefix ranges. B (/16 -> /30)    C (/24 -> /30)
+unsigned long get_max_subnets(unsigned char given_mask){
+    unsigned long max_subnets;
+
+    if(given_mask > 30 || given_mask < 16){
+        printf("Error: Given mask-prefix falls outside of the range for Class B and/or Class C IP-addresses. Exiting function. No Calculation performed\n");
+        return -1;
+    }
+    
+    if (given_mask == 16){
+        max_subnets = 0;
+    } else if(given_mask < 24){
+        max_subnets = pow(2, (given_mask - 16));
+    } else if (given_mask > 24){
+        max_subnets = pow(2, (given_mask - 24));
+    } else {
+        max_subnets = 0;
+    }
+
+    return max_subnets;
 }
 
 // Caluclate the mask value in integer form. If mask value = 24, the function should return an unsigned integer equivalent to 
@@ -53,23 +84,6 @@ char* get_abcd_ip_format(unsigned long ip_address, char* output_buffer){
     return output_buffer;
 }
 
-
-// If Mask is 24 or higher, Multiple Network ID's will appear in last byte of A.B.C.D. Return the amount of network id:s in the last byte. Also store the Network ID:s in id_array
-int get_multiple_network_id_from_C_blocks(unsigned char given_mask, unsigned long* id_array){
-    int number_of_ids = 1;
-    int multiple;
-    if(given_mask > 24){
-        if(given_mask == 25){
-            number_of_ids = 2;
-        } else {
-            multiple = 1 << given_mask - 24;
-            number_of_ids = multiple;
-        }
-
-    }
-
-    return number_of_ids;
-}
 
 // Get current network ID, given IP-adress in format (A.B.C.D) and mask value in integer format. Return Network ID in integer format.
 unsigned long get_network_id(char* ip_address, unsigned char given_mask, char* output_buffer){
@@ -106,10 +120,6 @@ unsigned long get_subnet_mask(unsigned char given_mask, char* output_buffer){
 unsigned long check_ip_subnet_membership(char* network_ip1, unsigned char network_ip1_mask, char* network_ip2, unsigned char network_ip2_mask, char* output_buffer){
     unsigned long network_id1 = get_network_id(network_ip1, network_ip1_mask, output_buffer);
     unsigned long network_id2 = get_network_id(network_ip2, network_ip2_mask, output_buffer);
-    
-    // TODO
-    // Complete check if the IP-addresses are in the range of the network-ID
-
 
     if(network_ip1_mask != network_ip2_mask){
         printf("\n");
@@ -156,12 +166,50 @@ void print_set_bits(unsigned int u_integer){
 
 int main(int argc, char* argv[]){
 
-    unsigned long id_array[10];    
+    char buffer[100];                           // User input buffer
+    char continue_with_program;                 // Value to check if user wants to continue with the program.
     char output_buffer[PREFIX_LENGTH+1] = {0};
+    unsigned char ip_bytes[4];
     char* network_broadcast;
-    char* subnet_mask;
+    unsigned char subnet_mask;
+    char* ip_address;
 
-    printf("Number of sub network-ids: %d\n", get_multiple_network_id_from_C_blocks(30, id_array));
+    while (1){
+        printf("\n");
+        printf("Enter IP-configuration....\n");
+        
+        printf("IP-address in format A.B.C.D: ");
+        fgets(buffer, sizeof(buffer), stdin);
+        sscanf(buffer, "%hhu.%hhu.%hhu.%hhu", &ip_bytes[3], &ip_bytes[2], &ip_bytes[1], &ip_bytes[0]);
+
+        // Must use this to get the correct A.B.C.D-format for the functions below.
+        sprintf(output_buffer, "%d.%d.%d.%d", ip_bytes[3], ip_bytes[2], ip_bytes[1], ip_bytes[0]);
+        ip_address = output_buffer;
+
+        printf("Subnet prefix (ex. /24 = 255.255.255.0): ");
+        fgets(buffer, sizeof(buffer), stdin);
+        sscanf(buffer, "%hhu", &subnet_mask);
+
+        get_network_id(ip_address, subnet_mask, output_buffer);
+        printf("Network ID: %s/%d\n", output_buffer, subnet_mask);
+        get_network_broadcast(ip_address, subnet_mask, output_buffer);
+        printf("Network Broadcast: %s\n", output_buffer);
+        unsigned long total_amount_of_hosts = get_max_hosts_in_subnet(subnet_mask);
+        printf("Total amount of hosts: %d\n", total_amount_of_hosts);
+        unsigned long total_amount_of_subnets = get_max_subnets(subnet_mask);
+        printf("Total amount of subnets: %d\n", total_amount_of_subnets);
+
+        printf("\nDo you want to continue? (y/n): ");
+        fgets(buffer, sizeof(buffer), stdin);
+        sscanf(buffer, "%c", &continue_with_program);
+        if(continue_with_program == 'y' || continue_with_program == 'Y'){
+            continue;
+        } else {
+            break;
+        }
+    }
+ 
+
 
     return 0;
 }
